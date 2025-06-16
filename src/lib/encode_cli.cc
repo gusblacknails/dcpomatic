@@ -98,9 +98,10 @@ help(function <void (string)> out)
 	out("                                      (deprecated - use the dump command instead)\n");
 	out("      --no-check                    don't check project's content files for changes before making the DCP\n");
 	out("      --export-format <format>      export project to a file, rather than making a DCP: specify mov or mp4\n");
-	out("      --export-filename <filename>  filename to export to with --export-format\n");
-	out("      --hints                       analyze film for hints before encoding and abort if any are found\n");
-	out("\ne.g.\n");
+        out("      --export-filename <filename>  filename to export to with --export-format\n");
+        out("      --hints                       analyze film for hints before encoding and abort if any are found\n");
+        out("      --videotoolbox                use Apple's VideoToolbox for H.264 encoding\n");
+        out("\ne.g.\n");
 	out(fmt::format("\n  {} -t 4 make-dcp my_great_movie\n", program_name));
 	out(fmt::format("\n  {} config grok-licence 12345ABCD\n", program_name));
 	out("\n");
@@ -285,10 +286,11 @@ encode_cli(int argc, char* argv[], function<void (string)> out, function<void ()
 	bool dcp_path = false;
 	optional<boost::filesystem::path> config;
 	bool check = true;
-	optional<string> export_format;
-	optional<boost::filesystem::path> export_filename;
-	bool hints = false;
-	string command = "make-dcp";
+        optional<string> export_format;
+        optional<boost::filesystem::path> export_filename;
+        bool hints = false;
+        bool videotoolbox_flag = false;
+        string command = "make-dcp";
 
 	/* This makes it possible to call getopt several times in the same executable, for tests */
 	optind = 0;
@@ -311,13 +313,14 @@ encode_cli(int argc, char* argv[], function<void (string)> out, function<void ()
 			/* Just using A, B, C ... from here on */
 			{ "dump", no_argument, 0, 'A' },
 			{ "no-check", no_argument, 0, 'B' },
-			{ "export-format", required_argument, 0, 'C' },
-			{ "export-filename", required_argument, 0, 'D' },
-			{ "hints", no_argument, 0, 'E' },
-			{ 0, 0, 0, 0 }
-		};
+                        { "export-format", required_argument, 0, 'C' },
+                        { "export-filename", required_argument, 0, 'D' },
+                        { "hints", no_argument, 0, 'E' },
+                        { "videotoolbox", no_argument, 0, 'F' },
+                        { 0, 0, 0, 0 }
+                };
 
-		int c = getopt_long(argc, argv, "vhfnrt:j:kAs:ldc:BC:D:E", long_options, &option_index);
+                int c = getopt_long(argc, argv, "vhfnrt:j:kAs:ldc:BC:D:EF", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -373,11 +376,14 @@ encode_cli(int argc, char* argv[], function<void (string)> out, function<void ()
 		case 'D':
 			export_filename = optarg;
 			break;
-		case 'E':
-			hints = true;
-			break;
-		}
-	}
+                case 'E':
+                        hints = true;
+                        break;
+                case 'F':
+                        videotoolbox_flag = true;
+                        break;
+                }
+        }
 
 	vector<string> commands = {
 		"make-dcp",
@@ -501,9 +507,13 @@ encode_cli(int argc, char* argv[], function<void (string)> out, function<void ()
 		new JSONServer(json_port.get());
 	}
 
-	if (threads) {
-		Config::instance()->set_master_encoding_threads(threads.get());
-	}
+        if (threads) {
+                Config::instance()->set_master_encoding_threads(threads.get());
+        }
+
+        if (videotoolbox_flag) {
+                Config::instance()->set_use_videotoolbox(true);
+        }
 
 	shared_ptr<Film> film;
 	try {
