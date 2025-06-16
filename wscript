@@ -75,6 +75,7 @@ def options(opt):
     opt.add_option('--use-lld',           action='store_true', default=False, help='use lld linker')
     opt.add_option('--enable-disk',       action='store_true', default=False, help='build dcpomatic2_disk tool; requires Boost process, lwext4 and nanomsg libraries')
     opt.add_option('--enable-grok',       action='store_true', default=False, help='build with support for grok J2K encoder')
+    opt.add_option('--enable-videotoolbox', action='store_true', default=False, help='enable VideoToolbox encoding/decoding')
     opt.add_option('--warnings-are-errors', action='store_true', default=False, help='build with -Werror')
     opt.add_option('--wx-config',         help='path to wx-config')
     opt.add_option('--enable-asan',       action='store_true', help='build with asan')
@@ -113,6 +114,7 @@ def configure(conf):
     conf.env.STATIC_DCPOMATIC = conf.options.static_dcpomatic
     conf.env.ENABLE_DISK = conf.options.enable_disk
     conf.env.ENABLE_GROK = conf.options.enable_grok
+    conf.env.ENABLE_VIDEOTOOLBOX = conf.options.enable_videotoolbox
     if conf.options.destdir == '':
         conf.env.INSTALL_PREFIX = conf.options.prefix
     else:
@@ -248,6 +250,8 @@ def configure(conf):
     if conf.env.TARGET_OSX:
         conf.env.append_value('CXXFLAGS', ['-DDCPOMATIC_OSX', '-DGL_SILENCE_DEPRECATION'])
         conf.env.append_value('LINKFLAGS', '-headerpad_max_install_names')
+        if conf.options.enable_videotoolbox:
+            conf.env.append_value('LINKFLAGS', ['-framework', 'VideoToolbox'])
 
     #
     # Dependencies.
