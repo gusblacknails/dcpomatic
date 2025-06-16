@@ -106,10 +106,11 @@ Config::set_defaults()
 	_tms_password = "";
 	_allow_any_dcp_frame_rate = false;
 	_allow_any_container = false;
-	_allow_96khz_audio = false;
-	_use_all_audio_channels = false;
-	_show_experimental_audio_processors = false;
-	_language = optional<string>();
+        _allow_96khz_audio = false;
+        _use_all_audio_channels = false;
+        _show_experimental_audio_processors = false;
+        _use_videotoolbox = false;
+        _language = optional<string>();
 	_default_still_length = 10;
 	_default_dcp_content_type = DCPContentType::from_isdcf_name("FTR");
 	_default_dcp_audio_channels = 8;
@@ -463,8 +464,9 @@ try
 	_allow_any_dcp_frame_rate = f.optional_bool_child("AllowAnyDCPFrameRate").get_value_or(false);
 	_allow_any_container = f.optional_bool_child("AllowAnyContainer").get_value_or(false);
 	_allow_96khz_audio = f.optional_bool_child("Allow96kHzAudio").get_value_or(false);
-	_use_all_audio_channels = f.optional_bool_child("UseAllAudioChannels").get_value_or(false);
-	_show_experimental_audio_processors = f.optional_bool_child("ShowExperimentalAudioProcessors").get_value_or(false);
+        _use_all_audio_channels = f.optional_bool_child("UseAllAudioChannels").get_value_or(false);
+        _show_experimental_audio_processors = f.optional_bool_child("ShowExperimentalAudioProcessors").get_value_or(false);
+        _use_videotoolbox = f.optional_bool_child("UseVideoToolbox").get_value_or(false);
 
 	_log_types = f.optional_number_child<int>("LogTypes").get_value_or(LogEntry::TYPE_GENERAL | LogEntry::TYPE_WARNING | LogEntry::TYPE_ERROR);
 	_analyse_ebur128 = f.optional_bool_child("AnalyseEBUR128").get_value_or(true);
@@ -888,9 +890,11 @@ Config::write_config() const
 	/* [XML] Allow96kHzAudio 1 to allow users to make DCPs with 96kHz audio, 0 to always make 48kHz DCPs */
 	cxml::add_text_child(root, "Allow96kHzAudio", _allow_96khz_audio ? "1" : "0");
 	/* [XML] UseAllAudioChannels 1 to allow users to map audio to all 16 DCP channels, 0 to limit to the channels used in standard DCPs */
-	cxml::add_text_child(root, "UseAllAudioChannels", _use_all_audio_channels ? "1" : "0");
-	/* [XML] ShowExperimentalAudioProcessors 1 to offer users the (experimental) audio upmixer processors, 0 to hide them */
-	cxml::add_text_child(root, "ShowExperimentalAudioProcessors", _show_experimental_audio_processors ? "1" : "0");
+        cxml::add_text_child(root, "UseAllAudioChannels", _use_all_audio_channels ? "1" : "0");
+        /* [XML] ShowExperimentalAudioProcessors 1 to offer users the (experimental) audio upmixer processors, 0 to hide them */
+        cxml::add_text_child(root, "ShowExperimentalAudioProcessors", _show_experimental_audio_processors ? "1" : "0");
+        /* [XML] UseVideoToolbox 1 to use Apple's VideoToolbox for H.264 encoding if available */
+        cxml::add_text_child(root, "UseVideoToolbox", _use_videotoolbox ? "1" : "0");
 	/* [XML] LogTypes Types of logging to write; a bitfield where 1 is general notes, 2 warnings, 4 errors, 8 debug information related
 	   to 3D, 16 debug information related to encoding, 32 debug information for timing purposes, 64 debug information related
 	   to sending email, 128 debug information related to the video view, 256 information about disk writing, 512 debug information

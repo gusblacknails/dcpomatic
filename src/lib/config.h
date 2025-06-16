@@ -202,9 +202,13 @@ public:
 		return _use_all_audio_channels;
 	}
 
-	bool show_experimental_audio_processors() const {
-		return _show_experimental_audio_processors;
-	}
+        bool show_experimental_audio_processors() const {
+                return _show_experimental_audio_processors;
+        }
+
+        bool use_videotoolbox() const {
+                return _use_videotoolbox;
+        }
 
 	boost::optional<std::string> language() const {
 		return _language;
@@ -764,9 +768,13 @@ public:
 		maybe_set(_use_all_audio_channels, a);
 	}
 
-	void set_show_experimental_audio_processors(bool e) {
-		maybe_set(_show_experimental_audio_processors, e, SHOW_EXPERIMENTAL_AUDIO_PROCESSORS);
-	}
+        void set_show_experimental_audio_processors(bool e) {
+                maybe_set(_show_experimental_audio_processors, e, SHOW_EXPERIMENTAL_AUDIO_PROCESSORS);
+        }
+
+        void set_use_videotoolbox(bool u) {
+                maybe_set(_use_videotoolbox, u);
+        }
 
 	void set_language(std::string l) {
 		if (_language && _language.get() == l) {
@@ -1366,11 +1374,13 @@ private:
 	    DCPs at 25fps but will play 16:9, so this is very useful for some users.
 	    https://www.dcpomatic.com/forum/viewtopic.php?f=2&t=1119&p=4468
 	*/
-	bool _allow_any_container;
-	bool _allow_96khz_audio;
-	bool _use_all_audio_channels;
-	/** Offer the upmixers in the audio processor settings */
-	bool _show_experimental_audio_processors;
+        bool _allow_any_container;
+        bool _allow_96khz_audio;
+        bool _use_all_audio_channels;
+        /** Offer the upmixers in the audio processor settings */
+        bool _show_experimental_audio_processors;
+        /** Use Apple's VideoToolbox for H.264 encoding */
+        bool _use_videotoolbox;
 	boost::optional<std::string> _language;
  	/** Default length of still image content (seconds) */
 	int _default_still_length;
