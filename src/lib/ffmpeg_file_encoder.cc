@@ -33,6 +33,7 @@ extern "C" {
 #include <libavutil/channel_layout.h>
 }
 #include <iostream>
+#include <cstdlib>
 
 #include "i18n.h"
 
@@ -248,12 +249,26 @@ FFmpegFileEncoder::FFmpegFileEncoder (
 		av_dict_set(&_video_options, "profile", "1", 0);
 		av_dict_set(&_video_options, "threads", "auto", 0);
 		break;
-	case ExportFormat::H264_AAC:
-		_sample_format = AV_SAMPLE_FMT_FLTP;
-		_video_codec_name = "libx264";
-		_audio_codec_name = "aac";
-		av_dict_set_int (&_video_options, "crf", x264_crf, 0);
-		break;
+        case ExportFormat::H264_AAC:
+                _sample_format = AV_SAMPLE_FMT_FLTP;
+                _audio_codec_name = "aac";
+#ifdef DCPOMATIC_OSX
+                {
+                        bool const use_vt = std::getenv("DCPOMATIC_HW_ENCODE") &&
+                                std::string(std::getenv("DCPOMATIC_HW_ENCODE")) == "1";
+                        if (use_vt && avcodec_find_encoder_by_name("h264_videotoolbox")) {
+                                _video_codec_name = "h264_videotoolbox";
+                                _pixel_format = AV_PIX_FMT_NV12;
+                        } else {
+                                _video_codec_name = "libx264";
+                                av_dict_set_int(&_video_options, "crf", x264_crf, 0);
+                        }
+                }
+#else
+                _video_codec_name = "libx264";
+                av_dict_set_int(&_video_options, "crf", x264_crf, 0);
+#endif
+                break;
 	default:
 		DCPOMATIC_ASSERT (false);
 	}
@@ -328,9 +343,13 @@ FFmpegFileEncoder::setup_video ()
 	_video_codec_context->global_quality = 0;
 	_video_codec_context->width = _video_frame_size.width;
 	_video_codec_context->height = _video_frame_size.height;
-	_video_codec_context->time_base = (AVRational) { 1, _video_frame_rate };
-	_video_codec_context->pix_fmt = _pixel_format;
-	_video_codec_context->flags |= AV_CODEC_FLAG_QSCALE | AV_CODEC_FLAG_GLOBAL_HEADER;
+        _video_codec_context->time_base = (AVRational) { 1, _video_frame_rate };
+        _video_codec_context->pix_fmt = _pixel_format;
+        _video_codec_context->flags |= AV_CODEC_FLAG_QSCALE | AV_CODEC_FLAG_GLOBAL_HEADER;
+
+        if (_video_codec_name.find("videotoolbox") != std::string::npos) {
+                av_dict_set(&_video_options, "threads", nullptr, 0);
+        }
 
 	if (avcodec_open2 (_video_codec_context, _video_codec, &_video_options) < 0) {
 		throw EncodeError(N_("avcodec_open2"), N_("FFmpegFileEncoder::setup_video"));
