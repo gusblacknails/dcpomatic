@@ -38,6 +38,7 @@ struct AVFormatContext;
 struct AVFrame;
 struct AVStream;
 struct AVIOContext;
+struct AVBufferRef;
 
 class FFmpegContent;
 class FFmpegAudioStream;
@@ -73,8 +74,9 @@ protected:
 	AVIOContext* _avio_context = nullptr;
 	FileGroup _file_group;
 
-	AVFormatContext* _format_context = nullptr;
-	std::vector<AVCodecContext*> _codec_context;
+        AVFormatContext* _format_context = nullptr;
+        AVBufferRef* _hw_device_ctx = nullptr;
+        std::vector<AVCodecContext*> _codec_context;
 
 	/** AVFrame used for decoding video */
 	AVFrame* _video_frame = nullptr;

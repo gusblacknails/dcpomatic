@@ -52,6 +52,8 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/hwcontext.h>
+#include <libavutil/pixfmt.h>
 }
 #include <boost/algorithm/string.hpp>
 #include <iomanip>
@@ -593,19 +595,35 @@ FFmpegDecoder::decode_and_process_video_packet (AVPacket* packet)
 		/* EAGAIN means we should call avcodec_receive_frame and then re-send the same packet */
 		pending = r == AVERROR(EAGAIN);
 
-		while (true) {
-			r = avcodec_receive_frame (context, _video_frame);
-			if (r == AVERROR(EAGAIN) || r == AVERROR_EOF || (r < 0 && !packet)) {
-				/* More input is required, no more frames are coming, or we are flushing and there was
-				 * some error which we just want to ignore.
-				 */
-				return false;
-			} else if (r < 0) {
-				throw DecodeError (N_("avcodec_receive_frame"), N_("FFmpeg::decode_and_process_video_packet"), r);
-			}
+                while (true) {
+                        r = avcodec_receive_frame (context, _video_frame);
+                        if (r == AVERROR(EAGAIN) || r == AVERROR_EOF || (r < 0 && !packet)) {
+                                /* More input is required, no more frames are coming, or we are flushing and there was
+                                 * some error which we just want to ignore.
+                                 */
+                                return false;
+                        } else if (r < 0) {
+                                throw DecodeError (N_("avcodec_receive_frame"), N_("FFmpeg::decode_and_process_video_packet"), r);
+                        }
 
-			process_video_frame ();
-		}
+                        if (_video_frame->format == AV_PIX_FMT_VIDEOTOOLBOX) {
+                                AVFrame* sw_frame = av_frame_alloc();
+                                if (!sw_frame) {
+                                        throw std::bad_alloc();
+                                }
+                                int tr = av_hwframe_transfer_data(sw_frame, _video_frame, 0);
+                                if (tr < 0) {
+                                        LOG_WARNING("av_hwframe_transfer_data returned %1", tr);
+                                        av_frame_free(&sw_frame);
+                                        continue;
+                                }
+                                av_frame_unref(_video_frame);
+                                av_frame_move_ref(_video_frame, sw_frame);
+                                av_frame_free(&sw_frame);
+                        }
+
+                        process_video_frame ();
+                }
 	} while (pending);
 
 	return true;

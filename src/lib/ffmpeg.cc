@@ -35,6 +35,7 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/hwcontext.h>
 #include <libswscale/swscale.h>
 }
 #include <boost/algorithm/string.hpp>
@@ -67,16 +68,17 @@ FFmpeg::~FFmpeg ()
 {
 	boost::mutex::scoped_lock lm (_mutex);
 
-	for (auto& i: _codec_context) {
-		avcodec_free_context (&i);
-	}
+        for (auto& i: _codec_context) {
+                avcodec_free_context (&i);
+        }
 
 	av_frame_free (&_video_frame);
 	for (auto& audio_frame: _audio_frame) {
 		av_frame_free (&audio_frame.second);
 	}
 
-	avformat_close_input (&_format_context);
+        avformat_close_input (&_format_context);
+        av_buffer_unref (&_hw_device_ctx);
 }
 
 
@@ -110,10 +112,17 @@ FFmpeg::setup_general ()
 	_format_context->pb = _avio_context;
 
 	AVDictionary* options = nullptr;
-	int e = avformat_open_input (&_format_context, 0, 0, &options);
-	if (e < 0) {
-		throw OpenFileError (_ffmpeg_content->path(0).string(), e, OpenFileError::READ);
-	}
+        int e = avformat_open_input (&_format_context, 0, 0, &options);
+        if (e < 0) {
+                throw OpenFileError (_ffmpeg_content->path(0).string(), e, OpenFileError::READ);
+        }
+
+        /* Try to create a VideoToolbox device for hardware decoding */
+        e = av_hwdevice_ctx_create (&_hw_device_ctx, AV_HWDEVICE_TYPE_VIDEOTOOLBOX, NULL, NULL, 0);
+        if (e < 0) {
+                dcpomatic_log->log (String::compose ("Failed to create hardware device: %1", e), LogEntry::TYPE_WARNING);
+                _hw_device_ctx = nullptr;
+        }
 
 	if (avformat_find_stream_info (_format_context, 0) < 0) {
 		throw DecodeError (_("could not find stream information"));
@@ -211,9 +220,16 @@ FFmpeg::setup_decoders ()
 			*/
 			av_dict_set_int (&options, "strict", FF_COMPLIANCE_EXPERIMENTAL, 0);
 			/* Enable following of links in files */
-			av_dict_set_int (&options, "enable_drefs", 1, 0);
+                        av_dict_set_int (&options, "enable_drefs", 1, 0);
 
-			r = avcodec_open2 (context, codec, &options);
+                        if (_hw_device_ctx) {
+                                context->hw_device_ctx = av_buffer_ref (_hw_device_ctx);
+                                if (!context->hw_device_ctx) {
+                                        throw std::bad_alloc();
+                                }
+                        }
+
+                        r = avcodec_open2 (context, codec, &options);
 			if (r < 0) {
 				throw DecodeError (N_("avcodec_open2"), N_("FFmpeg::setup_decoders"), r);
 			}
